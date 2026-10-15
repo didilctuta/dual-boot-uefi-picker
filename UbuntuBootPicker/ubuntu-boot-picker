@@ -1,0 +1,138 @@
+#!/usr/bin/env bash
+set -u
+
+TITLE='Ubuntu 启动切换器'
+EFIBOOTMGR="$(command -v efibootmgr 2>/dev/null || true)"
+
+show_error() {
+    if command -v zenity >/dev/null 2>&1; then
+        zenity --error --title="$TITLE" --width=480 --text="$1" >/dev/null 2>&1 || true
+    else
+        printf '%s\n' "$1" >&2
+    fi
+}
+
+if [[ -z "$EFIBOOTMGR" ]]; then
+    show_error '未找到 efibootmgr。请先安装：sudo apt install efibootmgr'
+    exit 1
+fi
+if ! command -v zenity >/dev/null 2>&1; then
+    printf '%s\n' '未找到 zenity。请先安装：sudo apt install zenity' >&2
+    exit 1
+fi
+if ! command -v pkexec >/dev/null 2>&1; then
+    show_error '未找到 pkexec。请安装并启用 PolicyKit 后再使用此图形工具。'
+    exit 1
+fi
+if [[ ! -d /sys/firmware/efi/efivars ]]; then
+    show_error '当前 Ubuntu 不是以 UEFI 模式启动，无法读取或修改 UEFI 启动项。'
+    exit 1
+fi
+
+if ! firmware_output="$(pkexec "$EFIBOOTMGR" -v 2>&1)"; then
+    show_error "读取 UEFI 启动项失败：\n\n$firmware_output"
+    exit 1
+fi
+
+declare -a labels=()
+declare -a ids=()
+declare -a systems=()
+while IFS= read -r line; do
+    # Only offer active EFI entries (the '*' after Boot#### marks active entries).
+    if [[ "$line" =~ ^Boot([[:xdigit:]]{4})\*[[:space:]]+(.*)$ ]]; then
+        boot_id="${BASH_REMATCH[1],,}"
+        details="${BASH_REMATCH[2]}"
+        normalized="${details,,}"
+        system=''
+        if [[ "$normalized" == *'windows boot manager'* ]] || \
+           [[ "$normalized" == *'\efi\microsoft\boot\bootmgfw.efi'* ]]; then
+            system='Windows 11'
+        elif [[ "$normalized" == *ubuntu* ]] || \
+             [[ "$normalized" == *'\efi\ubuntu\'* ]]; then
+            system='Ubuntu'
+        fi
+
+        if [[ -n "$system" ]]; then
+            labels+=("$system (Boot $boot_id)")
+            ids+=("$boot_id")
+            systems+=("$system")
+        fi
+    fi
+done <<< "$firmware_output"
+
+if (( ${#labels[@]} == 0 )); then
+    show_error '没有找到可用的 Windows 或 Ubuntu UEFI 启动项。请确认双系统启动项已存在且处于启用状态。'
+    exit 1
+fi
+
+choice_values="$(IFS='|'; printf '%s' "${labels[*]}")"
+form_result="$(zenity --forms \
+    --title="$TITLE" \
+    --text='选择目标系统和启动方式' \
+    --width=520 \
+    --add-combo='目标系统' \
+    --combo-values="$choice_values" \
+    --add-combo='操作' \
+    --combo-values='设为默认启动|下次启动进入所选系统' \
+    --separator='|')" || exit 0
+
+IFS='|' read -r selected_label action <<< "$form_result"
+selected_index=-1
+for i in "${!labels[@]}"; do
+    if [[ "${labels[$i]}" == "$selected_label" ]]; then
+        selected_index=$i
+        break
+    fi
+done
+if (( selected_index < 0 )); then
+    show_error '无法识别所选启动项，请重新打开工具再试。'
+    exit 1
+fi
+
+target_id="${ids[$selected_index]}"
+target_system="${systems[$selected_index]}"
+if [[ "$action" == '设为默认启动' ]]; then
+    if ! boot_order="$(awk -F': *' '/^BootOrder:/ { print $2; exit }' <<< "$firmware_output")" || [[ -z "$boot_order" ]]; then
+        show_error '固件没有报告当前 BootOrder。为避免丢失其他启动项，本工具不会改写默认顺序。'
+        exit 1
+    fi
+
+    declare -a reordered=("$target_id")
+    IFS=',' read -r -a old_order <<< "$boot_order"
+    for entry in "${old_order[@]}"; do
+        entry="${entry//[[:space:]]/}"
+        entry="${entry,,}"
+        [[ -z "$entry" || "$entry" == "$target_id" ]] || reordered+=("$entry")
+    done
+    new_order="$(IFS=','; printf '%s' "${reordered[*]}")"
+
+    if ! zenity --question --title="$TITLE" --width=480 \
+        --text="把 $target_system 设为默认启动系统？其他固件启动项会保留在原有顺序中。" \
+        --ok-label='确认设置' --cancel-label='取消'; then
+        exit 0
+    fi
+    if ! result="$(pkexec "$EFIBOOTMGR" -o "$new_order" 2>&1)"; then
+        show_error "设置默认启动项失败：\n\n$result"
+        exit 1
+    fi
+    zenity --info --title="$TITLE" --width=480 \
+        --text="$target_system 已设为默认启动。下次开机将按新的固件启动顺序进入系统。" >/dev/null 2>&1 || true
+else
+    if ! zenity --question --title="$TITLE" --width=480 \
+        --text="设置下次开机进入 $target_system？这不会立即重启。" \
+        --ok-label='确认设置' --cancel-label='取消'; then
+        exit 0
+    fi
+    if ! result="$(pkexec "$EFIBOOTMGR" -n "$target_id" 2>&1)"; then
+        show_error "设置下一次启动失败：\n\n$result"
+        exit 1
+    fi
+    zenity --info --title="$TITLE" --width=480 \
+        --text="已设置下次启动进入 $target_system。默认启动顺序未改变。" >/dev/null 2>&1 || true
+fi
+
+if zenity --question --title="$TITLE" --width=480 \
+    --text='现在重启应用启动设置吗？请选择“稍后”可在之后手动重启。' \
+    --ok-label='现在重启' --cancel-label='稍后'; then
+    pkexec systemctl reboot >/dev/null 2>&1 || show_error '重启命令未能执行。请检查认证提示，或稍后手动重启。'
+fi
