@@ -2,6 +2,18 @@
 
 在 Windows 11 或 Ubuntu 桌面中，选择现有的 Windows Boot Manager 或 Ubuntu UEFI 启动项。可将所选系统设为默认启动，或只指定下一次启动的系统。两端都有图形界面，修改启动项时会请求系统授权。
 
+## 下载发布包
+
+[前往 v1.0.0 中文发布页](https://github.com/didilctuta/dual-boot-uefi-picker/releases/tag/v1.0.0)
+
+| 文件 | 内容 | 使用方法 |
+| --- | --- | --- |
+| `dual-boot-uefi-picker-v1.0.0-win11.zip` | Windows 11 启动器 EXE、PowerShell 主程序、VBS 备用入口与说明 | 解压后双击 `启动切换器.exe`，不要单独移动 EXE |
+| `dual-boot-uefi-picker-v1.0.0-ubuntu.zip` | Ubuntu 图形脚本、安装脚本与说明 | 解压后按 Ubuntu 目录的 README 安装 |
+| `dual-boot-uefi-picker-source-v1.0.0.zip` | 两端源码与说明，不含 Windows EXE | 适合检查或自行构建 |
+
+Windows 版以 EXE 或 VBS 启动，不提供会弹出命令窗口的 BAT 启动器。
+
 | 当前系统 | 目录 | 启动方式 |
 | --- | --- | --- |
 | Windows 11 | [`WindowsBootPicker-Win11`](WindowsBootPicker-Win11/README.md) | 双击 `启动切换器.exe`，并保留同目录的 `WindowsBootPicker.ps1` |
