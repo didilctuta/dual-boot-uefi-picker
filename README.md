@@ -8,9 +8,9 @@
 
 | 文件 | 内容 | 使用方法 |
 | --- | --- | --- |
-| `dual-boot-uefi-picker-v1.0.0-win11.zip` | Windows 11 启动器 EXE、PowerShell 主程序、VBS 备用入口与说明 | 解压后双击 `启动切换器.exe`，不要单独移动 EXE |
-| `dual-boot-uefi-picker-v1.0.0-ubuntu.zip` | Ubuntu 图形脚本、安装脚本与说明 | 解压后按 Ubuntu 目录的 README 安装 |
-| `dual-boot-uefi-picker-source-v1.0.0.zip` | 两端源码与说明，不含 Windows EXE | 适合检查或自行构建 |
+| [Windows 11 完整包](https://github.com/didilctuta/dual-boot-uefi-picker/releases/download/v1.0.0/dual-boot-uefi-picker-v1.0.0-win11.zip) | Windows 11 启动器 EXE、PowerShell 主程序、VBS 备用入口与说明 | 解压后双击 `启动切换器.exe`，不要单独移动 EXE |
+| [Ubuntu 完整包](https://github.com/didilctuta/dual-boot-uefi-picker/releases/download/v1.0.0/dual-boot-uefi-picker-v1.0.0-ubuntu.zip) | Ubuntu 图形脚本、安装脚本与说明 | 解压后按 Ubuntu 目录的 README 安装 |
+| [源码包](https://github.com/didilctuta/dual-boot-uefi-picker/releases/download/v1.0.0/dual-boot-uefi-picker-source-v1.0.0.zip) | 两端源码与说明，不含 Windows EXE | 适合检查或自行构建 |
 
 Windows 版以 EXE 或 VBS 启动，不提供会弹出命令窗口的 BAT 启动器。
 
